@@ -1,2 +1,5 @@
 # share_phone
-## just a short turm project to share phone number with a friend
+
+(central_server + client) is the stable version
+
+(server + phone) is the new version, which (for whatsoever reason I could not understand) has several bugs.
