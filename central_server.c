@@ -37,7 +37,7 @@ int main(int argc, char *argv[]) {
   // delete the file
   remove(IP_FILE_NAME);
 
-  // FILE *f = fopen(IP_FILE_NAME, "w");
+  FILE *f = fopen(IP_FILE_NAME, "w");
 
   struct sockaddr_in addr;
   addr.sin_family = AF_INET;
