@@ -8,14 +8,22 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <time.h>
 #include <unistd.h>
 
-// #define CSERVER_PORT 51234
 #define BUFFER_SIZE 8192
+#define INET_ADDRSTRLEN 16
+#define MAX_CLIENTS 10
+#define RAND_RANGE 20000
 
 // IP.txt IPアドレスを取得
 // log.txt ログはなんでもここに
 // stopper.txt ここに1が入ったら終了
+
+typedef struct {
+  char ip[INET_ADDRSTRLEN];
+  int port;
+} client_info;
 
 void check_stopper(int ichi);
 void write_stopper();
@@ -126,6 +134,9 @@ int main(int argc, char **argv) {
   FILE *f_log = fopen("log.txt", "w");
   remove("stopper.txt");
 
+  srand((unsigned)time(NULL));
+  int port = 30000 + rand() % RAND_RANGE;
+
   FILE *IP = fopen("IP.txt", "w");
 
   // central serverと接続するためのソケットを作る
@@ -142,38 +153,58 @@ int main(int argc, char **argv) {
     exit(1);
   }
 
-  // CSからポート番号を読み込む
-  int port;
-  recv(socket_to_CS, &port, sizeof(port), 0);
-  write_to_log("log.txt", "Received port number from CS", getpid());
-  write_to_log("log.txt", "Port number is", port);
-
-  // すでにつながっているパソコンのIPアドレスをCSから読み込む
-  while (1) {
-    char string[1];
-    int n = recv(socket_to_CS, string, 1, 0);
-    if (n == 0) {
-      break;
-    }
-    fwrite(string, 1, 1, IP);
-  }
-  fclose(IP);
-  IP = fopen("IP.txt", "r");
-  if (IP == NULL) {
-    perror("fopen");
+  // receive clients info
+  client_info clients[MAX_CLIENTS];
+  if (recv(socket_to_CS, clients, sizeof(clients), 0) == -1) {
+    perror("recv");
     exit(1);
   }
+  printf("Received clients info\n");
+  for (int i = 0; i < MAX_CLIENTS; i++) {
+    if (clients[i].port == 0) {
+      break;
+    }
+    printf("IP: %s\n Port: %d\n", clients[i].ip, clients[i].port);
+  }
+
+  // send port number to CS
+  send(socket_to_CS, &port, sizeof(port), 0);
+
+  // すでにつながっているパソコンのIPアドレスをCSから読み込む
+  // while (1) {
+  //   char string[1];
+  //   int n = recv(socket_to_CS, string, 1, 0);
+  //   if (n == 0) {
+  //     break;
+  //   }
+  //   fwrite(string, 1, 1, IP);
+  // }
+  // fclose(IP);
+  // IP = fopen("IP.txt", "r");
+  // if (IP == NULL) {
+  //   perror("fopen");
+  //   exit(1);
+  // }
   // CSとの接続を切断する
   close(socket_to_CS);
 
   // check_stopper(4);
 
   // CSからもらったIPアドレスを順に読み込む
-  char *IP_addr = malloc(sizeof(char) * 20);
+  // char *IP_addr = malloc(sizeof(char) * 20);
 
   // すでにつながっているパソコンの数だけ
-  while (fgets(IP_addr, 20, IP) != NULL) {
+  for (int i = 0; i < MAX_CLIENTS; i++) {
+    if (clients[i].port == 0) {
+      break;
+    }
+    char IP_addr[INET_ADDRSTRLEN];
+    strcpy(IP_addr, clients[i].ip);
     check_stopper(5);
+    int client_port = clients[i].port;
+    fprintf(f_log, "IP: %s\n Port: %d\n", IP_addr, client_port);
+    fclose(f_log);
+    f_log = fopen("log.txt", "a");
 
     fprintf(f_log,
             "[initial client] to shite %s wo yomi kondayo ! [Process No. %d]\n",
@@ -200,7 +231,7 @@ int main(int argc, char **argv) {
 
       addr.sin_family = AF_INET;
       addr.sin_addr.s_addr = inet_addr(IP_addr);
-      addr.sin_port = htons(port);
+      addr.sin_port = htons(client_port);
       // phone serverとconnect
       int ret = connect(s_to_PS, (struct sockaddr *)&addr, sizeof(addr));
       if (ret == -1) {
@@ -259,12 +290,13 @@ int main(int argc, char **argv) {
                    getpid());
       call(s);
       check_stopper(6);
+      exit(0);
     }
     check_stopper(102);
     close(s);
   }
   write_to_log("log.txt", "[phone server] PS no while nuketa yo!", getpid());
-  free(IP_addr);
+  // free(IP_addr);
   check_stopper(7);
 
   return 0;
