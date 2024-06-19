@@ -16,17 +16,20 @@ char IP_FILE_NAME[] = "ip_addresses.txt";
 // #define PORT 50000
 #define INET_ADDRSTRLEN 16
 #define RAND_RANGE 20000
+#define MAX_CLIENTS 10
 
-void handle_client(int client_socket, struct sockaddr_in client_addr, int port);
+typedef struct {
+  char ip[INET_ADDRSTRLEN];
+  int port;
+} client_info;
+
+void handle_client(int client_socket, struct sockaddr_in client_addr);
 
 int main(int argc, char *argv[]) {
   if (argc != 2) {
     fprintf(stderr, "Usage: %s port\n", argv[0]);
     exit(1);
   }
-  srand(time(NULL));
-  int port = 30000 + rand() % RAND_RANGE;
-  printf("The port number is %d\n", port);
 
   int ss = socket(AF_INET, SOCK_STREAM, 0);
   if (ss == -1) {
@@ -71,7 +74,7 @@ int main(int argc, char *argv[]) {
 
     if (fork() == 0) {
       close(ss); // Child process does not need the listening socket
-      handle_client(s, client_addr, port);
+      handle_client(s, client_addr);
       printf("Connction to %s port %d closed\n",
              inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
       close(s);
@@ -84,24 +87,35 @@ int main(int argc, char *argv[]) {
   return 0;
 }
 
-void handle_client(int client_socket, struct sockaddr_in client_addr,
-                   int port) {
-  // Send the port number to the client
-  send(client_socket, &port, sizeof(port), 0);
+void handle_client(int client_socket, struct sockaddr_in client_addr) {
+
+  client_info clients[MAX_CLIENTS] = {0};
+  FILE *f = fopen(IP_FILE_NAME, "r");
+  for (int i = 0; i < MAX_CLIENTS; i++) {
+    if (fscanf(f, "%s %d", clients[i].ip, &clients[i].port) == EOF) {
+      break;
+    }
+  }
+  // send ckient info to client
+  send(client_socket, clients, sizeof(clients), 0);
+  // Receive the port number from the client
+  int port;
+  recv(client_socket, &port, sizeof(port), 0);
 
   // Send all IP addresses to client
-  FILE *f = fopen(IP_FILE_NAME, "r");
-  char ip_addr[INET_ADDRSTRLEN];
-  while (fgets(ip_addr, sizeof(ip_addr), f) != NULL) {
-    send(client_socket, ip_addr, strlen(ip_addr), 0);
-  }
-  fclose(f);
+  // FILE *f = fopen(IP_FILE_NAME, "r");
+  // char ip_addr[INET_ADDRSTRLEN];
+  // while (fgets(ip_addr, sizeof(ip_addr), f) != NULL) {
+  //   send(client_socket, ip_addr, strlen(ip_addr), 0);
+  // }
+  // fclose(f);
 
   char ip[INET_ADDRSTRLEN];
   inet_ntop(AF_INET, &client_addr.sin_addr, ip, sizeof(ip));
 
   // Write the IP address to the file
   f = fopen(IP_FILE_NAME, "a");
-  fprintf(f, "%s\n", ip);
+  fprintf(f, "%s\n %d\n", ip, port);
+  printf("Phone server @ %s port %d\n", ip, port);
   fclose(f);
 }
