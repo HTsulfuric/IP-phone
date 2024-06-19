@@ -10,7 +10,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#define CSERVER_PORT 51234
+// #define CSERVER_PORT 51234
 #define BUFFER_SIZE 8192
 
 // IP.txt IPアドレスを取得
@@ -200,7 +200,7 @@ int main(int argc, char **argv) {
 
       addr.sin_family = AF_INET;
       addr.sin_addr.s_addr = inet_addr(IP_addr);
-      addr.sin_port = htons(CSERVER_PORT);
+      addr.sin_port = htons(port);
       // phone serverとconnect
       int ret = connect(s_to_PS, (struct sockaddr *)&addr, sizeof(addr));
       if (ret == -1) {
@@ -227,7 +227,7 @@ int main(int argc, char **argv) {
     check_stopper(100);
     struct sockaddr_in addr;
     addr.sin_family = AF_INET;
-    addr.sin_port = htons(CSERVER_PORT);
+    addr.sin_port = htons(port);
     addr.sin_addr.s_addr = INADDR_ANY;
 
     // socket_to_PCを有効化する（ポート番号を変える必要があるかも？）
